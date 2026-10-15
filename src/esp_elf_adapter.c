@@ -67,7 +67,16 @@ void *esp_elf_malloc(uint32_t n, bool exec)
 #ifdef CONFIG_ELF_LOADER_LOAD_PSRAM
     caps = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
 #else
+#ifdef MALLOC_CAP_EXEC
+    /* ESP32-C3 (and other non-mirror RISC-V): executable code must come
+     * from IRAM (MALLOC_CAP_EXEC). Plain 8BIT lands in DRAM (0x3fc...)
+     * where the PMP forbids instruction fetch -> Instruction access fault.
+     * (Same root cause as the NuttX textheap issue: DRAM 0x3fc80000-0x3fce0000
+     * is RW-, IRAM alias 0x4037c000 is RWX, offset 0x700000.) */
+    caps = exec ? MALLOC_CAP_EXEC : MALLOC_CAP_8BIT;
+#else
     caps = MALLOC_CAP_8BIT;
+#endif
 #endif
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
     caps |= MALLOC_CAP_CACHE_ALIGNED;
